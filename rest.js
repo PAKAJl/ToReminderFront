@@ -132,4 +132,28 @@ export async function renderAll() {
   });
 }
 
+export async function update(id, token, updateData) {
+    const BASE_URL = `http://${config.serverIp}:4200/api/tasks`; 
+
+    // 1. Убираем ${id} из конца URL. Теперь запрос пойдет строго на /api/tasks
+    const response = await fetch(BASE_URL, {
+      method: 'PUT', 
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `${token}` 
+      },
+      // 2. Добавляем id внутрь тела запроса
+      body: JSON.stringify({
+        id: id, // Передаем ID здесь
+        ...updateData
+      })
+    });
+
+    // Небольшая поправка: у стандартного response свойство называется ok, а не isOk
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    return await response.json();
+}
 

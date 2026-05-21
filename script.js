@@ -85,16 +85,67 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
       }
     });
 
-    async function moveNoteToColumn(id, column) {
+    async function moveNoteToColumn1(id, column) {
       const note = notes.find(n => n.id === id);
       if (note && note.column !== column) {
         note.column = column;
+
         await rest.renderAll();
         const columnNames = { pending: 'В ожидании', inprogress: 'В работе', done: 'Готово', paused: 'На паузе' };
         showNotification(`Заметка перемещена в «${columnNames[column]}»`, 'success');
       }
     }
 
+async function moveNoteToColumn(id, column) {
+  // 1. Ищем DOM-элемент карточки по её data-id
+  const noteElement = document.querySelector(`.note[data-id="${id}"]`);
+  
+  if (!noteElement) {
+    console.error(`Заметка с id ${id} не найдена в DOM`);
+    return;
+  }
+
+  // 2. Вытаскиваем заголовок из тега h3
+  const title = noteElement.querySelector('.note__title')?.textContent?.trim() || '';
+
+  // 3. Вытаскиваем описание (в твоем примере его нет, но если появится тег, например, .note__description):
+  const description = noteElement.querySelector('.note__description')?.textContent?.trim() || '';
+
+  // 4. Определяем приоритет. 
+  // Мы можем вытащить его из классов самого элемента (например: note--medium-priority)
+  let priority = 'low'; // дефолт
+  if (noteElement.classList.contains('note--medium-priority')) priority = 'medium';
+  if (noteElement.classList.contains('note--high-priority')) priority = 'high';
+
+  // [Необязательно] Проверяем текущую колонку, если ты хранишь её в data-атрибуте родительского контейнера
+  // Если проверки нет, можно просто формировать данные:
+
+  // Формируем данные для сервера
+  const updateData = {
+    title: title,
+    description: description,
+    status: column, // Новая колонка
+    priority: priority
+  };
+
+  console.log(updateData)
+  try {
+    const token = localStorage.getItem("token"); 
+    
+    // Отправляем на сервер
+    await rest.update(id, token, updateData);
+
+    // Если сервер ответил ок, перерисовываем интерфейс
+    await rest.renderAll(); 
+
+    const columnNames = { pending: 'В ожидании', inprogress: 'В работе', done: 'Готово', paused: 'На паузе' };
+    showNotification(`Заметка перемещена в «${columnNames[column]}»`, 'success');
+
+  } catch (error) {
+    console.error('Ошибка при обновлении заметки на сервере:', error);
+    showNotification('Не удалось переместить заметку', 'error');
+  }
+}
    
 
     // =============================================
