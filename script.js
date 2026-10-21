@@ -1,12 +1,8 @@
-let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
+let notes = [];
     let editingId = null;
     let draggedNoteId = null;
     let reminderTimers = {};
     let selectedColor = 'white';
-
-    function saveNotes() {
-      localStorage.setItem('noteflow_notes', JSON.stringify(notes));
-    }
 
     function generateId() {
       return 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -171,29 +167,42 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
       trashZone.classList.remove('trash-zone--active', 'trash-zone--visible');
       if (draggedNoteId) {
         deleteNote(draggedNoteId);
-        showNotification('Заметка удалена', 'error');
       }
     });
 
+    function findNote(id) {
+      return notes.find(n => String(n.id) === String(id));
+    }
+
     function moveNoteToColumn(id, column) {
-      const note = notes.find(n => n.id === id);
+      const note = findNote(id);
       if (note && note.column !== column) {
+        const prevColumn = note.column;
         note.column = column;
-        saveNotes();
         renderAll();
         const columnNames = { pending: 'В ожидании', inprogress: 'В работе', done: 'Готово', paused: 'На паузе' };
         showNotification(`Заметка перемещена в «${columnNames[column]}»`, 'success');
+        updateNoteOnServer(note.id, note).catch(error => {
+          showNotification('Ошибка синхронизации: ' + error.message, 'error');
+          note.column = prevColumn;
+          renderAll();
+        });
       }
     }
 
-    function deleteNote(id) {
-      notes = notes.filter(n => n.id !== id);
-      if (reminderTimers[id]) {
-        clearTimeout(reminderTimers[id]);
-        delete reminderTimers[id];
+    async function deleteNote(id) {
+      try {
+        await deleteNoteOnServer(id);
+        notes = notes.filter(n => String(n.id) !== String(id));
+        if (reminderTimers[id]) {
+          clearTimeout(reminderTimers[id]);
+          delete reminderTimers[id];
+        }
+        renderAll();
+        showNotification('Заметка удалена', 'error');
+      } catch (error) {
+        showNotification('Не удалось удалить заметку: ' + error.message, 'error');
       }
-      saveNotes();
-      renderAll();
     }
 
     // =============================================
@@ -214,7 +223,7 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
     }
 
     function openEditModal(id) {
-      const note = notes.find(n => n.id === id);
+      const note = findNote(id);
       if (!note) return;
       editingId = id;
       selectedColor = note.color || 'white';
@@ -246,7 +255,7 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
       if (btn) setColorOption(btn.dataset.color);
     });
 
-    function saveNote() {
+    async function saveNote() {
       const title = document.getElementById('noteTitle').value.trim();
       if (!title) {
         document.getElementById('noteTitle').classList.add('form-input--error');
@@ -265,17 +274,40 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
       };
 
       if (editingId) {
-        const note = notes.find(n => n.id === editingId);
-        if (note) Object.assign(note, data);
-        showNotification('Заметка обновлена', 'success');
+        const note = findNote(editingId);
+        if (note) {
+          const prev = { ...note };
+          Object.assign(note, data);
+          renderAll();
+          closeModal();
+          showNotification('Заметка обновлена', 'success');
+          try {
+            const serverNote = await updateNoteOnServer(note.id, note);
+            Object.assign(note, serverNote);
+            renderAll();
+          } catch (error) {
+            showNotification('Ошибка синхронизации: ' + error.message, 'error');
+            Object.assign(note, prev);
+            renderAll();
+          }
+        }
       } else {
-        notes.push({ id: generateId(), createdAt: Date.now(), ...data });
+        const newNote = { id: generateId(), createdAt: Date.now(), ...data };
+        notes.push(newNote);
+        renderAll();
+        closeModal();
         showNotification('Заметка создана', 'success');
+        try {
+          const serverNote = await createNoteOnServer(data);
+          const i = notes.findIndex(n => n.id === newNote.id);
+          if (i !== -1) notes[i] = serverNote;
+          renderAll();
+        } catch (error) {
+          showNotification('Ошибка синхронизации: ' + error.message, 'error');
+          notes = notes.filter(n => n.id !== newNote.id);
+          renderAll();
+        }
       }
-
-      saveNotes();
-      renderAll();
-      closeModal();
     }
 
     // =============================================
@@ -297,7 +329,7 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
 
     function showReminderAlert(note) {
       showNotification(`⏰ Напоминание: «${note.title}»`, 'reminder', 8000);
-      if (Notification && Notification.permission === 'granted') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         new Notification('NoteFlow — Напоминание', { body: note.title, icon: '' });
       }
     }
@@ -359,8 +391,8 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
     // =============================================
     renderAll();
 
-    // Demo notes if empty
-    if (notes.length === 0) {
+    // Demo notes only when project token is not set (backend not connected yet)
+    if (!localStorage.getItem('token') && notes.length === 0) {
       const demoNotes = [
         { id: generateId(), title: 'Изучить новый фреймворк', text: 'Посмотреть документацию и туториалы по Vue 3', column: 'pending', priority: 'high', color: 'white', reminder: '', createdAt: Date.now() - 86400000 },
         { id: generateId(), title: 'Дизайн главной страницы', text: 'Нарисовать wireframe и согласовать с командой', column: 'inprogress', priority: 'medium', color: 'mint', reminder: '', createdAt: Date.now() - 3600000 },
@@ -369,9 +401,5 @@ let notes = JSON.parse(localStorage.getItem('noteflow_notes') || '[]');
         { id: generateId(), title: 'Обновить зависимости', text: '', column: 'paused', priority: 'low', color: 'yellow', reminder: '', createdAt: Date.now() - 259200000 },
       ];
       notes = demoNotes;
-      saveNotes();
       renderAll();
     }
-module.exports = {
-  createNoteElement
-}

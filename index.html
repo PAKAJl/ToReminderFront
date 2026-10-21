@@ -13,7 +13,7 @@
   <!-- HEADER -->
   <header class="header">
     <div class="header__logo">
-      <img src="/images/1776946778964-019dba47-ae74-7d0b-a4f3-d5eb246bd476-Photoroom.png" alt="" class="logo-img">
+      <img src="images/1776946778964-019dba47-ae74-7d0b-a4f3-d5eb246bd476-Photoroom.png" alt="ToReminder" class="logo-img">
     </div>
     <div class="header__actions">
       <button class="btn btn--primary" id="addNoteBtn">
@@ -24,8 +24,15 @@
         Новая заметка
       </button>
       <div class="token__container">
-        <input type="text" id="token__input" placeholder="Токен вашего проекта">
-        <button class="btn btn--primary" id="savetoken__btn">Сохранить</button>
+        <div class="token__display-wrapper">
+          <span class="token__label">Активный токен:</span>
+          <span class="token__value" id="activeTokenDisplay">Не установлен</span>
+        </div>
+        <div class="token__input-wrapper">
+          <input type="text" id="token__input" placeholder="Название нового проекта или существующий токен">
+          <button class="btn btn--primary" id="savetoken__btn">Создать проект</button>
+          <button class="btn btn--secondary" id="usetoken__btn">Ввести токен</button>
+        </div>
       </div>
     </div>
   </header>
