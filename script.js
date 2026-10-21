@@ -8,98 +8,7 @@ let notes = [];
       return 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     }
 
-    // =============================================
-    //  RENDER
-    // =============================================
-    function renderAll() {
-      const columns = ['pending', 'inprogress', 'done', 'paused'];
-      columns.forEach(col => {
-        const body = document.getElementById('body-' + col);
-        const count = document.getElementById('count-' + col);
-        const colNotes = notes.filter(n => n.column === col);
-        count.textContent = colNotes.length;
-        body.innerHTML = '';
-        colNotes.forEach(note => {
-          body.appendChild(createNoteElement(note));
-        });
-      });
-      setupReminderChecks();
-    }
-
-    function createNoteElement(note) {
-      const card = document.createElement('div');
-      card.className = `note note--${note.color || 'white'} note--${note.priority || 'low'}-priority`;
-      card.dataset.id = note.id;
-      card.draggable = true;
-
-      const hasReminder = note.reminder && note.reminder !== '';
-      const reminderDate = hasReminder ? new Date(note.reminder) : null;
-      const now = new Date();
-      const isOverdue = reminderDate && reminderDate < now;
-      const isSoon = reminderDate && !isOverdue && (reminderDate - now) < 3600000;
-
-      let reminderHtml = '';
-      if (hasReminder) {
-        const formattedDate = reminderDate.toLocaleString('ru-RU', {
-          day: '2-digit', month: '2-digit', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        });
-        const reminderClass = isOverdue ? 'note__reminder--overdue' : (isSoon ? 'note__reminder--soon' : '');
-        reminderHtml = `
-          <div class="note__reminder ${reminderClass}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <span>${formattedDate}</span>
-            ${isOverdue ? '<span class="reminder-badge reminder-badge--overdue">Просрочено</span>' : ''}
-            ${isSoon ? '<span class="reminder-badge reminder-badge--soon">Скоро</span>' : ''}
-          </div>`;
-      }
-
-      const priorityLabel = { low: 'Низкий', medium: 'Средний', high: 'Высокий' }[note.priority || 'low'];
-      const createdDate = new Date(note.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      card.innerHTML = `
-        <div class="note__drag-handle">
-          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
-        </div>
-        <div class="note__priority-bar"></div>
-        <div class="note__content">
-          <div class="note__top">
-            <span class="note__priority-badge note__priority-badge--${note.priority || 'low'}">${priorityLabel}</span>
-            <div class="note__actions">
-              <button class="note__action-btn" data-action="edit" data-id="${note.id}" title="Редактировать">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="note__action-btn note__action-btn--delete" data-action="delete" data-id="${note.id}" title="Удалить">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
-            </div>
-          </div>
-          <h3 class="note__title">${escapeHtml(note.title)}</h3>
-          ${note.text ? `<p class="note__text">${escapeHtml(note.text)}</p>` : ''}
-          ${reminderHtml}
-          <div class="note__footer">
-            <span class="note__date">${createdDate}</span>
-          </div>
-        </div>
-      `;
-
-      // Drag events
-      card.addEventListener('dragstart', onDragStart);
-      card.addEventListener('dragend', onDragEnd);
-
-      // Action buttons
-      card.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          const action = btn.dataset.action;
-          const id = btn.dataset.id;
-          if (action === 'edit') openEditModal(id);
-          if (action === 'delete') deleteNote(id);
-        });
-      });
-
-      return card;
-    }
+    
 
     function escapeHtml(str) {
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -140,12 +49,12 @@ let notes = [];
           body.classList.remove('column__body--dragover');
         }
       });
-      body.addEventListener('drop', e => {
+      body.addEventListener('drop',async e => {
         e.preventDefault();
         body.classList.remove('column__body--dragover');
         const targetColumn = body.dataset.column;
         if (draggedNoteId) {
-          moveNoteToColumn(draggedNoteId, targetColumn);
+          await moveNoteToColumn(draggedNoteId, targetColumn);
         }
       });
     });
@@ -162,7 +71,7 @@ let notes = [];
         trashZone.classList.remove('trash-zone--active');
       }
     });
-    trashZone.addEventListener('drop', e => {
+    trashZone.addEventListener('drop', async e => {
       e.preventDefault();
       trashZone.classList.remove('trash-zone--active', 'trash-zone--visible');
       if (draggedNoteId) {
@@ -216,8 +125,6 @@ let notes = [];
       document.getElementById('noteText').value = '';
       document.getElementById('noteColumn').value = column || 'pending';
       document.getElementById('notePriority').value = 'medium';
-      document.getElementById('noteReminder').value = '';
-      setColorOption('white');
       document.getElementById('modalOverlay').classList.add('modal-overlay--visible');
       document.getElementById('noteTitle').focus();
     }
@@ -226,14 +133,11 @@ let notes = [];
       const note = findNote(id);
       if (!note) return;
       editingId = id;
-      selectedColor = note.color || 'white';
       document.getElementById('modalTitle').textContent = 'Редактировать заметку';
       document.getElementById('noteTitle').value = note.title;
       document.getElementById('noteText').value = note.text || '';
       document.getElementById('noteColumn').value = note.column;
       document.getElementById('notePriority').value = note.priority || 'low';
-      document.getElementById('noteReminder').value = note.reminder || '';
-      setColorOption(note.color || 'white');
       document.getElementById('modalOverlay').classList.add('modal-overlay--visible');
       document.getElementById('noteTitle').focus();
     }
@@ -364,7 +268,6 @@ let notes = [];
     //  EVENT LISTENERS
     // =============================================
     document.getElementById('addNoteBtn').addEventListener('click', () => openAddModal('pending'));
-
     document.querySelectorAll('.column__add-btn').forEach(btn => {
       btn.addEventListener('click', () => openAddModal(btn.dataset.column));
     });
