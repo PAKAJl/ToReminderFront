@@ -83,6 +83,102 @@ let notes = [];
       return notes.find(n => String(n.id) === String(id));
     }
 
+    function formatDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' +
+        d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function createNoteCard(note) {
+      const el = document.createElement('div');
+      el.className = `note note--${note.color || 'white'} note--${note.priority || 'low'}-priority`;
+      el.dataset.id = note.id;
+      el.draggable = true;
+      el.addEventListener('dragstart', onDragStart);
+      el.addEventListener('dragend', onDragEnd);
+
+      const priorityLabels = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
+      let reminderHtml = '';
+      if (note.reminder) {
+        const t = new Date(note.reminder).getTime() - Date.now();
+        let cls = '';
+        let badge = '';
+        if (t < 0) {
+          cls = 'note__reminder--overdue';
+          badge = '<span class="reminder-badge reminder-badge--overdue">Просрочено</span>';
+        } else if (t < 86400000) {
+          cls = 'note__reminder--soon';
+          badge = '<span class="reminder-badge reminder-badge--soon">Скоро</span>';
+        }
+        reminderHtml = `<div class="note__reminder ${cls}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>${escapeHtml(new Date(note.reminder).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))}</span>${badge}
+        </div>`;
+      }
+
+      el.innerHTML = `
+        <div class="note__priority-bar"></div>
+        <div class="note__drag-handle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
+        </div>
+        <div class="note__content">
+          <div class="note__top">
+            <span class="note__priority-badge note__priority-badge--${note.priority || 'low'}">${priorityLabels[note.priority] || 'Низкий'}</span>
+            <div class="note__actions">
+              <button class="note__action-btn" data-action="edit" title="Редактировать">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="note__action-btn note__action-btn--delete" data-action="delete" title="Удалить">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="note__title">${escapeHtml(note.title)}</div>
+          ${note.text ? `<div class="note__text">${escapeHtml(note.text)}</div>` : ''}
+          ${reminderHtml}
+          <div class="note__footer"><span class="note__date">${formatDate(note.createdAt)}</span></div>
+        </div>`;
+
+      el.querySelector('[data-action="edit"]').addEventListener('click', () => openEditModal(note.id));
+      el.querySelector('[data-action="delete"]').addEventListener('click', () => deleteNote(note.id));
+      return el;
+    }
+
+    function renderAll() {
+      const columns = {
+        pending: {
+          body: document.getElementById('body-pending'),
+          count: document.getElementById('count-pending'),
+        },
+        inprogress: {
+          body: document.getElementById('body-inprogress'),
+          count: document.getElementById('count-inprogress'),
+        },
+        done: {
+          body: document.getElementById('body-done'),
+          count: document.getElementById('count-done'),
+        },
+        paused: {
+          body: document.getElementById('body-paused'),
+          count: document.getElementById('count-paused'),
+        },
+      };
+
+      Object.values(columns).forEach(col => {
+        col.body.innerHTML = '';
+        col.count.textContent = '0';
+      });
+
+      notes.forEach(note => {
+        const col = columns[note.column] || columns.pending;
+        col.body.appendChild(createNoteCard(note));
+        col.count.textContent = String(Number(col.count.textContent) + 1);
+      });
+
+      setupReminderChecks();
+    }
+
     function moveNoteToColumn(id, column) {
       const note = findNote(id);
       if (note && note.column !== column) {
@@ -125,6 +221,8 @@ let notes = [];
       document.getElementById('noteText').value = '';
       document.getElementById('noteColumn').value = column || 'pending';
       document.getElementById('notePriority').value = 'medium';
+      document.getElementById('noteReminder').value = '';
+      setColorOption('white');
       document.getElementById('modalOverlay').classList.add('modal-overlay--visible');
       document.getElementById('noteTitle').focus();
     }
@@ -138,6 +236,8 @@ let notes = [];
       document.getElementById('noteText').value = note.text || '';
       document.getElementById('noteColumn').value = note.column;
       document.getElementById('notePriority').value = note.priority || 'low';
+      document.getElementById('noteReminder').value = note.reminder || '';
+      setColorOption(note.color || 'white');
       document.getElementById('modalOverlay').classList.add('modal-overlay--visible');
       document.getElementById('noteTitle').focus();
     }

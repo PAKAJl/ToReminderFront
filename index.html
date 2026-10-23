@@ -34,33 +34,8 @@
           <button class="btn btn--secondary" id="usetoken__btn">Ввести токен</button>
         </div>
       </div>
-      <div class="actions">
-        <div class="header__actions">
-          <button class="btn btn--primary" id="addNoteBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line
-                x1="5" y1="12" x2="19" y2="12" /></svg>
-            Новая заметка
-          </button>
-          <div class="token__container">
-            <input type="text" id="token__input"
-              placeholder="Токен вашего проекта">
-            <button class="btn btn--primary"
-              id="savetoken__btn">Загрузить</button>
-          </div>
-        </div>
-        <div class="header__actions header__actions--project">
-          <button class="btn btn--primary" id="addProjecBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line
-                x1="5" y1="12" x2="19" y2="12" /></svg>
-            Создать проект
-          </button>
-          <input type="text" id="project__input"
-            placeholder="Имя нового проекта">
-  
-        </div>  
-      </header>
+    </div>
+  </header>
 
      <main class="board" id="board">
 
@@ -190,7 +165,20 @@
             </select>
           </div>
         </div>
-        
+        <div class="form-group">
+          <label class="form-label" for="noteReminder">Напоминание</label>
+          <input class="form-input" type="datetime-local" id="noteReminder" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Цвет заметки</label>
+          <div class="color-picker" id="colorPicker">
+            <button type="button" class="color-option color-option--white active" data-color="white"></button>
+            <button type="button" class="color-option color-option--green" data-color="green"></button>
+            <button type="button" class="color-option color-option--mint" data-color="mint"></button>
+            <button type="button" class="color-option color-option--teal" data-color="teal"></button>
+            <button type="button" class="color-option color-option--yellow" data-color="yellow"></button>
+          </div>
+        </div>
       </div>
       <div class="modal__footer">
         <button class="btn btn--secondary" id="modalCancel">Отмена</button>
@@ -201,8 +189,8 @@
 
     <!-- NOTIFICATION -->
     <div class="notification-container" id="notificationContainer"></div>
-    <script type="module" src="config.js"></script>
-    <script type="module" src="script.js"></script>
-    <script type="module" src="rest.js"></script>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="rest.js"></script>
   </body>
 </html>
